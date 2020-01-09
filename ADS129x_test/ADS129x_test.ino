@@ -26,7 +26,7 @@ const int ADS_START = 6;
 
 const int GRN_LED = 8;
 
-volatile int32_t ads_ch1;
+volatile int32_t ads_ch1 = 0;
 
 union ArrayToInteger {
   byte array[4];
@@ -34,7 +34,6 @@ union ArrayToInteger {
 };
 
 void setup() {
-  attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, LOW);
   Serial.begin(115200);
   while (!Serial) {};
   SPI.begin();
@@ -43,8 +42,7 @@ void setup() {
   pinMode(ADS_START, OUTPUT);
   pinMode(FRAM_CS, OUTPUT);
   pinMode(GRN_LED, OUTPUT);
-  //  pinMode(ADS_DRDY, INPUT);
-
+  
   digitalWrite(ADS_PWDN, HIGH);
   digitalWrite(ADS_START, LOW); // tie to low to use commands
   digitalWrite(ADS_CS, HIGH);
@@ -75,6 +73,10 @@ void setup() {
   ads_cmd(RDATAC); // cont conversion
   ads_startConv();
   digitalWrite(ADS_CS, LOW);
+
+  pinMode(ADS_DRDY, INPUT);
+  attachInterrupt(digitalPinToInterrupt(12), ads_log, CHANGE);
+  Serial.println("looping...");
 }
 
 void loop() {
@@ -82,11 +84,16 @@ void loop() {
   //  Serial.println(val);
   //  ads_endConv();
   //  delay(20);
+  digitalWrite(GRN_LED, LOW);
+  Serial.println(ads_ch1);
+  delay(5);
 }
 
 void ads_log() {
+  //  ads_read();
+  //  Serial.println(ads_ch1);
+  digitalWrite(GRN_LED, HIGH);
   ads_read();
-  Serial.println(ads_ch1);
 }
 
 void ads_wreg(byte rrrrr, byte data) {
@@ -99,7 +106,7 @@ void ads_wreg(byte rrrrr, byte data) {
 int ads_read() {
   size_t bufSz = (24 + (4 * 24)) / 8;
   byte myBuf[bufSz] = {};
-//  while (digitalRead(ADS_DRDY)) {} // wait for _DRDY to go LOW
+  //  while (digitalRead(ADS_DRDY)) {} // wait for _DRDY to go LOW
   ads_on();
   SPI.transfer(&myBuf, sizeof(myBuf));
   ads_off();
