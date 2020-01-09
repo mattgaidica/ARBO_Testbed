@@ -26,12 +26,15 @@ const int ADS_START = 6;
 
 const int GRN_LED = 8;
 
+volatile int32_t ads_ch1;
+
 union ArrayToInteger {
   byte array[4];
   int32_t integer;
 };
 
 void setup() {
+  attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, LOW);
   Serial.begin(115200);
   while (!Serial) {};
   SPI.begin();
@@ -40,7 +43,7 @@ void setup() {
   pinMode(ADS_START, OUTPUT);
   pinMode(FRAM_CS, OUTPUT);
   pinMode(GRN_LED, OUTPUT);
-  pinMode(ADS_DRDY, INPUT);
+  //  pinMode(ADS_DRDY, INPUT);
 
   digitalWrite(ADS_PWDN, HIGH);
   digitalWrite(ADS_START, LOW); // tie to low to use commands
@@ -55,12 +58,12 @@ void setup() {
 
   // had to turn on the RLD to get things working
   // delay in loop causes issues for some reason
-  
+
   ads_cmd(SDATAC); // stop data while setup
-  ads_wreg(0x01, 0b10000110); // config1
+  ads_wreg(0x01, 0b00000110); // config1
   ads_wreg(0x02, 0b00010000); // config2
   ads_wreg(0x03, 0b11001100); // config3
-  byte chReg   = 0b00000101;
+  byte chReg   = 0b00000000; // XXXXX101 for test
   byte chDis   = 0b10000001;
   ads_wreg(0x05, chReg); // ch1
   ads_wreg(0x06, chReg); // ch2
@@ -75,10 +78,15 @@ void setup() {
 }
 
 void loop() {
-  int val = ads_read();
+  //  int val = ads_read();
   //  Serial.println(val);
-//  ads_endConv();
-//  delay(20);
+  //  ads_endConv();
+  //  delay(20);
+}
+
+void ads_log() {
+  ads_read();
+  Serial.println(ads_ch1);
 }
 
 void ads_wreg(byte rrrrr, byte data) {
@@ -91,21 +99,22 @@ void ads_wreg(byte rrrrr, byte data) {
 int ads_read() {
   size_t bufSz = (24 + (4 * 24)) / 8;
   byte myBuf[bufSz] = {};
-  while (digitalRead(ADS_DRDY)) {} // wait for _DRDY to go LOW
+//  while (digitalRead(ADS_DRDY)) {} // wait for _DRDY to go LOW
   ads_on();
   SPI.transfer(&myBuf, sizeof(myBuf));
   ads_off();
-  int i;
-//  print_buffer(myBuf,sizeof(myBuf));
-  for (i = 1; i <= 4; i++) {
-    int bufStart = (i * 3);
-    if (i == 4) {
-      Serial.println(sign24to32(myBuf[bufStart], myBuf[bufStart + 1], myBuf[bufStart + 2]));
-    } else {
-      Serial.print(sign24to32(myBuf[bufStart], myBuf[bufStart + 1], myBuf[bufStart + 2]));
-      Serial.print("\t");
-    }
-  }
+  ads_ch1 = sign24to32(myBuf[3], myBuf[4], myBuf[5]);
+  //  int i;
+  //  print_buffer(myBuf,sizeof(myBuf));
+  //  for (i = 1; i <= 1; i++) {
+  //    int bufStart = (i * 3);
+  //    if (i == 1) {
+  //      Serial.println(sign24to32(myBuf[bufStart], myBuf[bufStart + 1], myBuf[bufStart + 2]));
+  //    } else {
+  //      Serial.print(sign24to32(myBuf[bufStart], myBuf[bufStart + 1], myBuf[bufStart + 2]));
+  //      Serial.print("\t");
+  //    }
+  //}
 
   //  ArrayToInteger converter;
   //  converter.array[0] = 0x00;
@@ -130,7 +139,7 @@ void ads_cmd(byte cmd) {
 
 bool ads_deviceId() {
   ads_on();
-  byte myBuf[3] = {SDATAC, RREG|DEVID, 0x00}; // stop data continuous, read 1 reg
+  byte myBuf[3] = {SDATAC, RREG | DEVID, 0x00}; // stop data continuous, read 1 reg
   SPI.transfer(&myBuf, sizeof(myBuf));
   ads_off();
   if (myBuf[0] == 0x90 || myBuf[0] == 0x91 || myBuf[0] == 0x92) { // ADS129x
@@ -166,12 +175,12 @@ int32_t sign24to32(byte b1, byte b2, byte b3) {
 }
 
 void print_buffer(byte arry[], int sz) {
-//  for (int i = 0; i < sz; i++) {
-//    Serial.print(i); Serial.print(": ");
-//    Serial.println(arry[i], HEX);
-//  }
-  for (int i=0; i < sz; i++) {
-    if (i == sz-1) {
+  //  for (int i = 0; i < sz; i++) {
+  //    Serial.print(i); Serial.print(": ");
+  //    Serial.println(arry[i], HEX);
+  //  }
+  for (int i = 0; i < sz; i++) {
+    if (i == sz - 1) {
       Serial.println(arry[i], DEC);
     } else {
       Serial.print(arry[i], DEC);
