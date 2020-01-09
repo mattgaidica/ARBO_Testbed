@@ -53,7 +53,7 @@ void setup() {
   while( !initialized ){
 
 #ifdef USE_SPI
-    myICM.begin( CS_PIN, SPI_PORT ); 
+    myICM.begin( CS_PIN, SPI_PORT, 400000); 
 #else
     myICM.begin( WIRE_PORT, AD0_VAL );
 #endif
