@@ -1,5 +1,9 @@
 #include <SPI.h>
+#include <SD.h>
+
 SPISettings mySettings(400000, MSBFIRST, SPI_MODE1);
+
+const int takeSamples = 1000;
 
 // ADS Opcode Commands (Table 15)
 // SYSTEM COMMANDS
@@ -23,10 +27,14 @@ const int ADS_CS = 11;
 const int ADS_PWDN = 10;
 const int ADS_DRDY = 12;
 const int ADS_START = 6;
-
+const int SD_CS = 4;
 const int GRN_LED = 8;
+const int RED_LED = 13;
 
-volatile int32_t ads_ch1 = 0;
+volatile int32_t ads_ch1;
+volatile int isr_samples = 0;
+
+volatile bool doWrite = false;
 
 union ArrayToInteger {
   byte array[4];
@@ -36,18 +44,42 @@ union ArrayToInteger {
 void setup() {
   Serial.begin(115200);
   while (!Serial) {};
+
   SPI.begin();
   pinMode(ADS_CS, OUTPUT);
   pinMode(ADS_PWDN, OUTPUT);
   pinMode(ADS_START, OUTPUT);
   pinMode(FRAM_CS, OUTPUT);
+  pinMode(SD_CS, OUTPUT);
   pinMode(GRN_LED, OUTPUT);
-  
+  pinMode(RED_LED, OUTPUT);
+  pinMode(ADS_DRDY, INPUT);
+
   digitalWrite(ADS_PWDN, HIGH);
   digitalWrite(ADS_START, LOW); // tie to low to use commands
   digitalWrite(ADS_CS, HIGH);
   digitalWrite(FRAM_CS, HIGH);
+  digitalWrite(RED_LED, LOW);
   digitalWrite(GRN_LED, LOW);
+
+  //digitalWrite(SD_CS, LOW);
+//  SD.begin(SD_CS);
+  //  while (!SD.begin(SD_CS)) {
+  //    Serial.println("Waiting for card...");
+  //    digitalWrite(RED_LED, HIGH);
+  //    delay(200);
+  //    digitalWrite(RED_LED, LOW);
+  //    delay(50);
+  //  }
+  //  delay(100); // debounce
+  //  Serial.println("Card initialized...");
+
+//  if (SD.exists("ARBO.txt")) {
+//    Serial.println("Removing ARBO.txt");
+//    SD.remove("ARBO.txt");
+//  }
+  digitalWrite(SD_CS, HIGH);
+
   //  Serial.println("Starting up...");
   //  while (!ads_deviceId()) {
   //    Serial.println("Booting ADS129x");
@@ -74,26 +106,41 @@ void setup() {
   ads_startConv();
   digitalWrite(ADS_CS, LOW);
 
-  pinMode(ADS_DRDY, INPUT);
-  attachInterrupt(digitalPinToInterrupt(12), ads_log, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, CHANGE);
   Serial.println("looping...");
+  digitalWrite(RED_LED, HIGH);
 }
 
 void loop() {
-  //  int val = ads_read();
-  //  Serial.println(val);
-  //  ads_endConv();
-  //  delay(20);
-  digitalWrite(GRN_LED, LOW);
-  Serial.println(ads_ch1);
-  delay(5);
+//  if (isr_samples >= takeSamples) {
+//    detachInterrupt(digitalPinToInterrupt(ADS_DRDY));
+//    digitalWrite(GRN_LED, HIGH);
+//    delay(100);
+//    digitalWrite(GRN_LED, LOW);
+//    delay(100);
+//  } else {
+    if (doWrite) {
+      Serial.println(ads_ch1);
+//      Serial.println(isr_samples);
+      //            digitalWrite(ADS_CS, HIGH); // ADS -> SD
+//      digitalWrite(SD_CS, LOW);
+//      File sd = SD.open("ARBO.txt", FILE_WRITE);
+//      sd.write((byte*)&ads_ch1, 4);
+//      sd.close();
+//      digitalWrite(SD_CS, HIGH); // SD -> ADS
+      //      digitalWrite(ADS_CS, LOW);
+      delay(5);
+      doWrite = false;
+    }
+//  }
 }
 
 void ads_log() {
-  //  ads_read();
-  //  Serial.println(ads_ch1);
-  digitalWrite(GRN_LED, HIGH);
-  ads_read();
+  if (!doWrite && !digitalRead(ADS_DRDY)) {
+    doWrite = true;
+    ads_read();
+    isr_samples++;
+  }
 }
 
 void ads_wreg(byte rrrrr, byte data) {
@@ -103,10 +150,10 @@ void ads_wreg(byte rrrrr, byte data) {
   ads_off();
 }
 
-int ads_read() {
+void ads_read() {
   size_t bufSz = (24 + (4 * 24)) / 8;
   byte myBuf[bufSz] = {};
-  //  while (digitalRead(ADS_DRDY)) {} // wait for _DRDY to go LOW
+  while (digitalRead(ADS_DRDY)) {} // wait for _DRDY to go LOW
   ads_on();
   SPI.transfer(&myBuf, sizeof(myBuf));
   ads_off();
