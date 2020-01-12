@@ -3,7 +3,7 @@
 #include "ArduinoLowPower.h"
 #include <RTCZero.h>
 #include "ICM_20948.h"
-
+//https://community.atmel.com/forum/samd21-sleep-current
 // Power considerations when sleeping (standby mode is deep sleep) requires
 // that you watch how many peripherals are left running in standby. The
 // SAMD21's internal Vreg can only supply 50uA in standby. At 25C the current
@@ -24,11 +24,11 @@
 //     EIC           5.107    52.741
 //     PTC          27.720    75.176
 
-ICM_20948_SPI myICM;
 #define FILE_BASE_NAME "XX"
 #define SPI_FREQ 1000000
-SPISettings mySettings(SPI_FREQ, MSBFIRST, SPI_MODE0);
+SPISettings mySettings(SPI_FREQ, MSBFIRST, SPI_MODE0); // for FRAM, different than ADS
 RTCZero rtc;
+ICM_20948_SPI myICM;
 SdFat sd;
 SdFile file;
 
@@ -79,6 +79,7 @@ void setup() {
   pinMode(ACCEL_CS, OUTPUT);
   pinMode(FRAM_CS, OUTPUT);
   pinMode(SD_CS, OUTPUT);
+  pinMode(ADS_CS, OUTPUT);
   digitalWrite(ACCEL_CS, HIGH);
   digitalWrite(ADS_CS, HIGH);
   //  digitalWrite(SD_CS, HIGH);
@@ -89,7 +90,7 @@ void setup() {
   pinMode(GRN_LED, OUTPUT);
   pinMode(RED_LED, OUTPUT);
   pinMode(ADS_START, OUTPUT);
-  pinMode(ACS_DRDY, INPUT);
+  pinMode(ADS_DRDY, INPUT);
   digitalWrite(ADS_PWDN, HIGH);
   digitalWrite(FRAM_HOLD, HIGH);
   digitalWrite(ADS_START, HIGH);
