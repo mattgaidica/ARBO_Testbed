@@ -22,6 +22,7 @@ const byte WREG = 0x40;
 
 const byte DEVID  = 0x00;
 
+// ARBO TESTBED v1
 const int FRAM_CS = 38;
 const int ADS_CS = 11;
 const int ADS_PWDN = 10;
@@ -30,6 +31,7 @@ const int ADS_START = 6;
 const int SD_CS = 4;
 const int GRN_LED = 8;
 const int RED_LED = 13;
+// END ARBO TESTBED
 
 volatile int32_t ads_ch1;
 volatile int isr_samples = 0;
