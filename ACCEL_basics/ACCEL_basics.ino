@@ -16,10 +16,11 @@
 
 #define SERIAL_PORT Serial
 
+// FOR ARBO MINI RIGHT NOW
 #define SPI_PORT SPI    // Your desired SPI port.       Used only when "USE_SPI" is defined
-#define CS_PIN 5        // Which pin you connect CS to. Used only when "USE_SPI" is defined
-const int FRAM_CS = 38;
-const int ADS_CS = 11;
+#define CS_PIN 1        // Which pin you connect CS to. Used only when "USE_SPI" is defined
+const int FRAM_CS = 7;
+const int ADS_CS = 38;
 
 //#define WIRE_PORT Wire  // Your desired Wire port.      Used when "USE_SPI" is not defined
 //#define AD0_VAL   1     // The value of the last bit of the I2C address. 

@@ -1,36 +1,9 @@
+#include <ARBO_Testbed.h>
+#include <ARBO.h>
 #include <SPI.h>
-SPISettings mySettings(400000, MSBFIRST, SPI_MODE0);
-
-// op-codes
-const byte WREN  = 0b00000110;
-const byte WRDI  = 0b00000100;
-const byte RDSR  = 0b00000101;
-const byte WRSR  = 0b00000001;
-const byte READ  = 0b00000011;
-const byte WRITE = 0b00000010;
-const byte RDID  = 0b10011111;
-const byte FSTRD = 0b00001011;
-const byte SLEEP = 0b10111001;
-const uint32_t maxMem = 0x1FFFF;
-
-// ARBO TESTBED v1
-const int FRAM_CS = 38;
-const int FRAM_HOLD = 2;
-const int ADS_CS = 11;
-const int ADS_PWDN = 10;
-const int ADS_DRDY = 12;
-const int ADS_START = 6;
-const int SD_CS = 4;
-const int GRN_LED = 8;
-const int RED_LED = 13;
-// END ARBO TESTBED
+//SPISettings mySettings(SPI_FREQ, MSBFIRST, SPI_MODE0);
 
 int32_t val;
-
-union ArrayToInteger {
- byte array[4];
- int32_t integer;
-};
 
 void setup() {
   Serial.begin(9600);
@@ -38,6 +11,7 @@ void setup() {
   SPI.begin();
   pinMode(ADS_CS, OUTPUT);
   pinMode(FRAM_CS, OUTPUT);
+  pinMode(ACCEL_CS, OUTPUT);
   pinMode(FRAM_HOLD, OUTPUT);
   pinMode(SD_CS, OUTPUT);
   pinMode(GRN_LED, OUTPUT);
@@ -45,6 +19,7 @@ void setup() {
 
   digitalWrite(ADS_CS, HIGH);
   digitalWrite(SD_CS, HIGH);
+  digitalWrite(ACCEL_CS, HIGH);
   digitalWrite(FRAM_CS, HIGH);
   digitalWrite(FRAM_HOLD, HIGH);
   digitalWrite(RED_LED, LOW);
@@ -55,12 +30,12 @@ void setup() {
 void loop() {
   bool fram_online = fram_deviceId();
   Serial.println(fram_online);
-  uint32_t memAdd = 10;
-  int saveData = 0x12345678;
-  fram_writeInt(memAdd, saveData);
-  fram_writeInt(memAdd+1, saveData);
-  val = fram_readInt(memAdd);
-  Serial.println(val, HEX);
+//  uint32_t memAdd = 10;
+//  int saveData = 0x12345678;
+//  fram_writeInt(memAdd, saveData);
+//  fram_writeInt(memAdd+1, saveData);
+//  val = fram_readInt(memAdd);
+//  Serial.println(val, HEX);
   delay(3000);
 }
 
@@ -102,61 +77,4 @@ byte fram_readByte(uint32_t memAdd) {
   SPI.transfer(&myBuf, sizeof(myBuf));
   fram_off();
   return myBuf[4];
-}
-
-bool fram_deviceId() {
-  byte myBuf[5] = {RDID};
-  byte mfgId = 0x04;
-  byte contCode = 0x7F;
-  byte prodId1 = 0x27;
-  byte prodId2 = 0x03;
-  fram_on();
-  SPI.transfer(&myBuf, sizeof(myBuf));
-  fram_off();
-  // myBuf[0] is for the op-code
-  if (myBuf[1] == mfgId && myBuf[2] == contCode && myBuf[3] == prodId1 && myBuf[4] == prodId2) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-void fram_on() {
-  SPI.beginTransaction(mySettings);
-  digitalWrite(FRAM_CS, LOW);
-}
-void fram_off() {
-  digitalWrite(FRAM_CS, HIGH);
-  SPI.endTransaction();
-}
-void fram_sleep() {
-  byte myBuf[1] = {SLEEP};
-  fram_on();
-  SPI.transfer(&myBuf, sizeof(myBuf));
-  fram_off();
-}
-void fram_wake() {
-  // just toggle CS to wake
-  digitalWrite(FRAM_CS, LOW);
-  digitalWrite(FRAM_CS, HIGH);
-}
-void fram_writeEnable() {
-  byte myBuf[1] = {WREN};
-  fram_on();
-  SPI.transfer(&myBuf, sizeof(myBuf));
-  fram_off();
-}
-void fram_writeDisable() {
-  byte myBuf[1] = {WRDI};
-  fram_on();
-  SPI.transfer(&myBuf, sizeof(myBuf));
-  fram_off();
-}
-
-// HELPERS
-void print_buffer(byte arry[], int siz) {
-  for (int i = 0; i < siz; i++) {
-    Serial.print(i); Serial.print(": ");
-    Serial.println(arry[i], HEX);
-  }
 }
