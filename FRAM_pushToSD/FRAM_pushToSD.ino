@@ -1,4 +1,7 @@
-#include <SPI.h>
+#include <ARBO_Testbed.h>
+#include <ARBO.h>
+
+//#include <SPI.h>
 #include "SdFat.h" // see dataLogger SdFat example
 #include "ArduinoLowPower.h"
 #include <RTCZero.h>
@@ -40,13 +43,10 @@ unsigned long EndTime;
 #define error(msg) sd.errorHalt(F(msg)) // from sdfat
 
 void setup() {
-  init(); //ARBO
-  
+  arbo_init(true); //ARBO
+
   const uint8_t BASE_NAME_SIZE = sizeof(FILE_BASE_NAME) - 1;
   char fileName[13] = FILE_BASE_NAME "00.arbo";
-
-  Serial.begin(9600);
-  while (!Serial) {};
 
   if (!sd.begin(SD_CS, SD_SCK_MHZ(1))) {
     sd.initErrorHalt();
@@ -67,8 +67,6 @@ void setup() {
   Serial.print(F("Logging to: "));
   Serial.println(fileName);
 
-  //  SPI.begin();
-
   for (int32_t i = 0; i < 1000; i++) {
     fram_writeInt(int32Addr(i), i);
   }
@@ -82,23 +80,23 @@ void setup() {
 
   Serial.println(millis() - StartTime);
 
-  fram_sleep();
+  //  fram_sleep();
   //  ads_cmd(SDATAC);
   //  ads_cmd(STANDBY);
-  digitalWrite(ADS_PWDN, LOW);
+  //  digitalWrite(ADS_PWDN, LOW);
 
-//  myICM.begin(ACCEL_CS, SPI, SPI_FREQ);
-//  Serial.print("Accel: ");
-//  Serial.println( myICM.statusString() );
-//  myICM.sleep( true );
-//  myICM.lowPower( true );
+  //  myICM.begin(ACCEL_CS, SPI, SPI_FREQ);
+  //  Serial.print("Accel: ");
+  //  Serial.println( myICM.statusString() );
+  //  myICM.sleep( true );
+  //  myICM.lowPower( true );
 
   //  rtc.begin();
   //  rtc.standbyMode();
   //    Serial.end();
   //  LowPower.deepSleep(5000);
 
-//  USBDevice.detach();
+  //  USBDevice.detach();
 }
 
 void loop() {
@@ -125,4 +123,5 @@ void loop() {
   //  delay(200);
   //  digitalWrite(GRN_LED, HIGH);
   //  delay(200);
+  arbo_blink(500);
 }
