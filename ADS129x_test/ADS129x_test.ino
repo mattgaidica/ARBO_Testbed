@@ -1,4 +1,4 @@
-#include <ARBO_Testbed.h>
+#include <ARBO_Mini.h>
 #include <ARBO.h>
 #include <SPI.h>
 #include "SdFat.h" // see dataLogger SdFat example
@@ -57,27 +57,30 @@ void setup() {
   //  attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, CHANGE);
   Serial.println("looping...");
   digitalWrite(RED_LED, HIGH);
-  
+
   Serial.println("Writing SD...");
   unsigned long startMicros = millis();
-  sd_write();
+  //  sd_write();
   Serial.print("millis: "); Serial.println(millis() - startMicros);
 }
 
 void loop() {
-  Serial.println(isr_samples);
+  //  Serial.println(isr_samples);
   //    Serial.print(ads_ch1 - average(ads_ch1_norm,normCount));
   //    Serial.print('\t');
   //    Serial.println(ads_ch2 - average(ads_ch2_norm,normCount));
 
-  ads_ch1_norm[inorm] = ads_ch1;
-  ads_ch2_norm[inorm] = ads_ch2;
-  inorm++;
+  //  ads_ch1_norm[inorm] = ads_ch1;
+  //  ads_ch2_norm[inorm] = ads_ch2;
+  //  inorm++;
+  //
+  //  if (inorm > normCount) {
+  //    inorm = 0;
+  //  }
 
-  if (inorm > normCount) {
-    inorm = 0;
-  }
-
+  Serial.println(measureBatt());
+  delay(1000);
+  Serial.println(fram_deviceId());
   delay(1000);
 }
 
