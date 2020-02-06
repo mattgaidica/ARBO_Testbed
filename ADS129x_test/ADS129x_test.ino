@@ -82,6 +82,9 @@ void loop() {
   delay(1000);
   Serial.println(fram_deviceId());
   delay(1000);
+  if (measureBatt() < 3.6) {
+    detachInterrupt(digitalPinToInterrupt(ADS_DRDY));
+  }
 }
 
 void ads_log() {
