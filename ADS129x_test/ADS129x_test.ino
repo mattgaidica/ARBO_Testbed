@@ -1,90 +1,97 @@
 #include <ARBO_Mini.h>
+//#include <ARBO_Testbed.h>
 #include <ARBO.h>
 #include <SPI.h>
 #include "SdFat.h" // see dataLogger SdFat example
+#include "ICM_20948.h"
 
-#define FILE_BASE_NAME "XX"
+ICM_20948_SPI myICM;
+//ICM_20948_smplrt_t mySmplrt;
+//mySmplrt.g = 54;
+
+SPISettings SPI_SD(SPI_FREQ, MSBFIRST, SPI_MODE0);
+
+char fileName[13] = "";
 SdFat sd;
 SdFile file;
+int fileNumber = 0;
 
-const int ADSchs = 6;
+//const int ADSchs = 4;
 volatile int32_t ads_ch1;
 volatile int32_t ads_ch2;
 volatile int32_t ads_ch3;
 volatile int32_t ads_ch4;
 volatile int isr_samples = 0;
-const int normCount = 20;
-int inorm = 0;
-int32_t ads_ch1_norm[normCount];
-int32_t ads_ch2_norm[normCount];
 
 volatile bool fileWritten = false;
-const int takeSamples = 250 * 5 * 60;
-volatile bool doWrite = false;
+const int takeSamples = 250 * 15;// 2 * 60;
 
 void setup() {
   arbo_init(true);
-  //  digitalWrite(SD_CS, HIGH);
-
+  //  Serial.println(fram_deviceId());
   //  Serial.println("Starting up...");
   //  while (!ads_deviceId()) {
   //    Serial.println("Booting ADS129x");
   //  }
   //  Serial.println("ADS129x online...");
 
+  while (!sd.begin(SD_CS, SPI_SD)) {
+    Serial.println("No SD card. Insert and cycle power.");
+    arbo_blink(2000);
+  }
+
   // had to turn on the RLD to get things working
   // delay in loop causes issues for some reason
-
   ads_cmd(ADS_OP_SDATAC); // stop data while setup
-  ads_wreg(0x01, 0b01100110); // config1
+  ads_wreg(0x01, 0b01000110); // config1
   ads_wreg(0x02, 0b00010001); // config2
   ads_wreg(0x03, 0b11001100); // config3
   ads_wreg(0x0D, 0b00000011); // RLD_SENSP
   ads_wreg(0x0E, 0b00000011); // RLD_SENSN
-  byte chReg   = 0b00010000; // XXXXX101 for test
+  byte chReg   = 0b00000000; // XXXXX101 for test, 000 for normal
   byte chDis   = 0b10000001;
   ads_wreg(0x05, chReg); // ch1
-  ads_wreg(0x06, chReg); // ch2
+  ads_wreg(0x06, chDis); // ch2
   ads_wreg(0x07, chDis); // ch3
   ads_wreg(0x08, chDis); // ch4
-  ads_wreg(0x09, chDis); // ch5 disabled
-  ads_wreg(0x0A, chDis); // ch6 disabled
+  if (ADSchs >= 6) {
+    ads_wreg(0x09, chDis); // ch5 disabled
+    ads_wreg(0x0A, chDis); // ch6 disabled
+  }
 
   ads_cmd(ADS_OP_RDATAC); // cont conversion
   ads_startConv();
-  //  digitalWrite(ADS_CS, LOW);
+  //  if (!sd.begin(SD_CS, SPI_SD)) {
+  //    Serial.println("SD begin error");
+  //  }
+  //  if (!sd.wipe(&Serial)) {
+  //    Serial.println("SD wipe error");
+  //  }
 
   //  attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, CHANGE);
-  Serial.println("looping...");
-  digitalWrite(RED_LED, HIGH);
-
-  Serial.println("Writing SD...");
-  unsigned long startMicros = millis();
-  //  sd_write();
-  Serial.print("millis: "); Serial.println(millis() - startMicros);
+  attachInterrupt(digitalPinToInterrupt(ACCEL_INT), accelISR, FALLING);
+  myICM.begin(ACCEL_CS);
+//  myICM.swReset(); // this makes dataReady() fail, prob starts in LP mode?
+  Serial.print("Accel: ");
+  Serial.println(myICM.statusString());
 }
 
 void loop() {
+  //  Serial.println(measureBatt());
   //  Serial.println(isr_samples);
-  //    Serial.print(ads_ch1 - average(ads_ch1_norm,normCount));
-  //    Serial.print('\t');
-  //    Serial.println(ads_ch2 - average(ads_ch2_norm,normCount));
-
-  //  ads_ch1_norm[inorm] = ads_ch1;
-  //  ads_ch2_norm[inorm] = ads_ch2;
-  //  inorm++;
-  //
-  //  if (inorm > normCount) {
-  //    inorm = 0;
-  //  }
-
-  Serial.println(measureBatt());
-  delay(1000);
-  Serial.println(fram_deviceId());
-  delay(1000);
-  if (measureBatt() < 3.6) {
-    detachInterrupt(digitalPinToInterrupt(ADS_DRDY));
+  if ( myICM.dataReady() ) {
+    myICM.getAGMT();                // The values are only updated when you call 'getAGMT'
+    //    printRawAGMT( myICM.agmt );     // Uncomment this to see the raw values, taken directly from the agmt structure
+    printScaledAGMT(myICM.agmt);   // This function takes into account the sclae settings from when the measurement was made to calculate the values with units
+    delay(30);
+  } else {
+    Serial.println("Waiting for data");
+    delay(500);
   }
+
+  //  if (measureBatt() < 3.6) {
+  //    detachInterrupt(digitalPinToInterrupt(ADS_DRDY));
+  //  }
 }
 
 void ads_log() {
@@ -94,15 +101,16 @@ void ads_log() {
   if (isr_samples == takeSamples && !fileWritten) {
     detachInterrupt(digitalPinToInterrupt(ADS_DRDY));
     sd_write();
-    //    attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, CHANGE);
+    isr_samples = 0;
+    attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, CHANGE);
     //    fileWritten = true;
   }
 }
 
 void sd_write() {
-  sd_openNew();
   // write in 512 byte chunks (128x 32-bit integers)
   int bufSz = 512;
+  sd_openFile();
   for (int memAddr = 0; memAddr < takeSamples * 4; memAddr += bufSz) {
     // takeSamples*4-1 is your final memAddr
     if ((takeSamples * 4 - 1) < (memAddr + bufSz)) {
@@ -115,31 +123,26 @@ void sd_write() {
   file.close();
 }
 
-void sd_openNew() {
-  const uint8_t BASE_NAME_SIZE = sizeof(FILE_BASE_NAME) - 1;
-  char fileName[13] = FILE_BASE_NAME "00.arbo";
-  if (!sd.begin(SD_CS, SD_SCK_MHZ(1))) {
-    Serial.println("SD ERROR");
-  }
-  while (sd.exists(fileName)) {
-    if (fileName[BASE_NAME_SIZE + 1] != '9') {
-      fileName[BASE_NAME_SIZE + 1]++;
-    } else if (fileName[BASE_NAME_SIZE] != '9') {
-      fileName[BASE_NAME_SIZE + 1] = '0';
-      fileName[BASE_NAME_SIZE]++;
-    } else {
-      Serial.println("Can't create file name");
+void sd_openFile() {
+  incFileName();
+  if (sd.begin(SD_CS, SPI_SD)) {
+    while (sd.exists(fileName)) {
+      incFileName();
     }
-  }
-  if (!file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
-    Serial.println("file.open error");
+    if (file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
+      Serial.println(fileName);
+    }
+  } else {
+    // HANDLE THIS!
+    Serial.println("SD card removed, stopping.");
   }
 }
 
-float average (int32_t * array, int len) {
-  long sum = 0L ;  // sum will be larger than an item, long for safety.
-  for (int i = 0 ; i < len ; i++) {
-    sum += array [i] ;
-  }
-  return  ((float) sum) / len ;  // average will be fractional, so float may be appropriate.
+void incFileName() {
+  sprintf(fileName, "%08d.arbo", fileNumber);
+  fileNumber++;
+}
+
+void accelISR() {
+  
 }

@@ -19,8 +19,9 @@
 // FOR ARBO MINI RIGHT NOW
 #define SPI_PORT SPI    // Your desired SPI port.       Used only when "USE_SPI" is defined
 #define CS_PIN 1        // Which pin you connect CS to. Used only when "USE_SPI" is defined
-const int FRAM_CS = 7;
+const int FRAM_CS = 13;
 const int ADS_CS = 38;
+const int SD_CS = 5;
 
 //#define WIRE_PORT Wire  // Your desired Wire port.      Used when "USE_SPI" is not defined
 //#define AD0_VAL   1     // The value of the last bit of the I2C address. 
@@ -37,8 +38,10 @@ const int ADS_CS = 38;
 void setup() {
   pinMode(ADS_CS, OUTPUT);
   pinMode(FRAM_CS, OUTPUT);
+  pinMode(SD_CS, OUTPUT);
   digitalWrite(ADS_CS, HIGH);
   digitalWrite(FRAM_CS, HIGH);
+  digitalWrite(SD_CS, HIGH);
   
   SERIAL_PORT.begin(115200);
   while(!SERIAL_PORT){};
