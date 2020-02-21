@@ -14,13 +14,10 @@ volatile int32_t ads_ch1;
 volatile int32_t ads_ch2;
 volatile int32_t ads_ch3;
 volatile int32_t ads_ch4;
-volatile int32_t useData;
 volatile int isr_samples = 0;
 bool writeFlag = false;
 
-const int takeSamples = 250 * 4 * 30; // max=30,000, includes 4 channels
-int incomingByte = 0;
-int useChannel = 0;
+const int takeSamples = 250 * 4 * 30; // max=30,000, Fs * ch * sec
 
 void setup() {
   arbo_init(true);
@@ -30,6 +27,7 @@ void setup() {
   //    Serial.println("Booting ADS129x");
   //  }
   //  Serial.println("ADS129x online...");
+  digitalWrite(GRN_LED,HIGH);
 
   while (!sd.begin(SD_CS, SPI_SD)) {
     Serial.println("No SD card. Insert and cycle power.");
@@ -43,8 +41,8 @@ void setup() {
   ads_wreg(0x01, 0b01000110); // config1
   ads_wreg(0x02, 0b00010001); // config2
   ads_wreg(0x03, 0b11001100); // config3
-  ads_wreg(0x0D, 0b00000001); // RLD_SENSP
-  ads_wreg(0x0E, 0b00000001); // RLD_SENSN
+  ads_wreg(0x0D, 0b00001111); // RLD_SENSP
+  ads_wreg(0x0E, 0b00001111); // RLD_SENSN
   byte chReg   = 0b00000000; // XXXXX101 for test, 000 for normal
   byte chDis   = 0b10000001;
   ads_wreg(0x05, chReg); // ch1
@@ -67,28 +65,21 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(ADS_DRDY), ads_log, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SD_DET), triggerWrite, CHANGE);
+  delay(100); // let ADS hit first interrupt?
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    incomingByte = Serial.read();
-    if (incomingByte != 10) { // \n
-      useChannel = incomingByte - 48; // convert to ch#
-    }
-  }
-  switch (useChannel) {
-    case 1:
-      useData = ads_ch1; break;
-    case 2:
-      useData = ads_ch2; break;
-    case 3:
-      useData = ads_ch3; break;
-    case 4:
-      useData = ads_ch4; break;
-  }
   digitalWrite(RED_LED, writeFlag);
-  Serial.println(sign32(rmHeader(useData)));
-  delay(50);
+  Serial.print(sign32(rmHeader(ads_ch1)));
+  Serial.print(",");
+  Serial.print(sign32(rmHeader(ads_ch2)));
+  Serial.print(",");
+  Serial.print(sign32(rmHeader(ads_ch3)));
+  Serial.print(",");
+  Serial.print(sign32(rmHeader(ads_ch4)));
+  Serial.print(",");
+  Serial.println(fileName);
+  delay(20);
 }
 
 void triggerWrite() {
@@ -145,9 +136,4 @@ void sd_openFile() {
     // HANDLE THIS!
     //    Serial.println("SD card removed, stopping.");
   }
-}
-
-void incFileName() {
-  sprintf(fileName, "%08d.arbo", fileNumber);
-  fileNumber++;
 }
